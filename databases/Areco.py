@@ -1,5 +1,5 @@
 from sqlalchemy.engine import create_engine, URL
-from sqlalchemy import text, Table, MetaData, select, and_
+from sqlalchemy import text, MetaData
 from dotenv import load_dotenv
 import pandas as pd
 import os
@@ -57,7 +57,7 @@ inner join it_pedido				D on D.id_ped = A.id_ped
 where A.pierSitReg = 'ATV' and A.statusPedido not in ('AGU', 'CAN', 'DIG') and D.pierSitReg = 'ATV'
 group by B.cdEnt, A.id_ped, A.cdPedido, C.nome, A.statusPedido, A.dt_pedido, A.dt_limiteEntrega, A.PedidoCliente
 
-order by A.cdPedido
+order by A.cdPedido desc
         """
         
         result = pd.read_sql_query(query, self.engine)
@@ -345,6 +345,40 @@ ORDER BY CelulaProducao.cd_celulaproducao
             result = conn.execute(text(stmt), params)
             conn.commit()
             return id_apontProd
+        
+    def get_raw_material(self, id_of):
+        stmt = """select A.id_lstPartesOF, A.id_of, A.id_MatPrima, b.cd_Referencia, rtrim(B.ds_Prod) as ds_Prod, A.qtdItem, C.cd_unidMed  
+                from LstPartesOF						A
+                inner join materiais					B on A.id_MatPrima = B.id_produto
+                inner join unid_medidas					C on C.id_unidMed = A.id_unidMed
+                where id_of = ?
+                """
+        params = (id_of, )
+        result = pd.read_sql_query(stmt, self.engine, params=params)
+        
+        return result.to_dict(orient='records')
+    
+    def get_auxiliar_orders(self, id_of):
+        stmt = """select A.id_of as id_of_pai, 
+                D.id_of as id_of_filho, 
+                D.cd_of as cd_of_filho,
+                E.cd_Referencia,
+                E.ds_prod,
+                D.Quantidade,
+                D.QtdProduzida,
+                D.StatusOF
+                from ProgramacaoProducao						A
+                inner join RlcProgramacao						B on A.id_ProgProdPCP = B.id_ProgProdPCP
+                inner join programacaoProducao					C on C.id_ProgProdPCP = B.IDProgProdPCPAnt
+                inner join ordemFabricacao						D on D.id_of = C.id_of
+                inner join materiais							E on E.id_produto = D.id_Produto
+                where A.id_of = ? and A.pierSitReg = 'ATV' and B.pierSitReg = 'ATV' and C.pierSitReg = 'ATV' and D.pierSitReg = 'ATV'
+                """
+        params = (id_of, )
+        
+        result = pd.read_sql_query(stmt, self.engine, params=params)
+        
+        return result.to_dict(orient='records')
         
     def create_engine(self, uid, pwd):
         connection_string = f"DRIVER={{{os.getenv('DRIVER')}}};SERVER={os.getenv('SERVER')};DATABASE={os.getenv('DATABASE')};UID={uid};PWD={pwd}"

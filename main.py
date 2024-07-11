@@ -71,6 +71,20 @@ def finalizeRecord():
     finalizedRecord = databases.areco.finalize_record(data)
     
     return jsonify({'id_apontProd': finalizedRecord})
+
+@app.route('/getRawMaterial/<int:id_of>', methods=['GET'])
+@limiter.exempt
+def getRawMaterial(id_of):
+    raw_material = databases.areco.get_raw_material(id_of)
+    return jsonify({'rawMaterial': raw_material})
+
+@app.route('/getAuxiliarOrders/<int:id_of>', methods=['GET'])
+@limiter.exempt
+def getAuxiliarOrders(id_of):
+    auxiliarOrders = databases.areco.get_auxiliar_orders(id_of)
+    
+    return jsonify({'auxiliarOrders': auxiliarOrders})
+    
     
 if __name__ == '__main__':
     app.run(host='0.0.0.0',debug=True)
