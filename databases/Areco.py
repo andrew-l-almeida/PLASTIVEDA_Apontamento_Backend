@@ -129,7 +129,8 @@ A.cd_of,
 B.Seq_operacao, 
 C.id_operacao, 
 rtrim(C.ds_operacao) as ds_operacao,
-B.id_CtrlProjPCP
+B.id_CtrlProjPCP,
+B.UltProc
 from OrdemFabricacao					A
 inner join LstProcOF					B on a.id_of = B.id_of
 inner join OperacoesProdutivas			C on C.id_operacao = B.id_operacao
@@ -203,6 +204,7 @@ order by 1,4
                 'id_operacao': row['id_operacao'],
                 'ds_operacao': row['ds_operacao'],
                 'id_CtrlProjPCP': row['id_CtrlProjPCP'],
+                'ultProc': row['UltProc'],
                 'records': records_array
             }
             
@@ -353,6 +355,72 @@ ORDER BY CelulaProducao.cd_celulaproducao
             result = conn.execute(text(stmt), params)
             conn.commit()
             return id_apontProd
+        
+    def insert_new_process(self, data):
+        id_of = data['id_of'] 
+        id_CtrlProjPCP = data['id_CtrlProjPCP']
+        id_operacao = data['id_operacao']
+        id_maquina = data['id_maquina']
+        id_celulaproducao = data['id_celulaproducao']
+        Seq_operacao = data['Seq_operacao'] 
+        
+        all_process = """
+            select * from LstProcOF
+            where id_of = ? and PierSitReg = 'ATV'"""
+        
+        params_all_process = (id_of, )
+        
+        processos = pd.read_sql_query(all_process, self.engine, params=params_all_process)
+        
+        qtd_processos = int(len(processos.index))
+        
+        id_last_process = int(processos[processos['UltProc'] == 'S']['Id_LstProcOF'].values[0])
+        
+        
+        stmt = """exec ProcInsUpdLstProcOF 0, 
+            :id_of, 
+            :id_CtrlProjPCP, 
+            :Seq_operacao, 
+            :id_celulaproducao, 
+            :id_maquina, 
+            '',
+            1, 
+            '', 
+            :id_operacao, 
+            '', 
+            1,
+            1, 
+            1,
+            1, 
+            1,
+            'NOR',
+            'N',
+            0,
+            'NOR',
+            0,
+            0,
+            0,
+            'ATV'
+            """
+        
+        params = dict(id_of = id_of, 
+            id_CtrlProjPCP = id_CtrlProjPCP, 
+            Seq_operacao = qtd_processos, 
+            id_celulaproducao = id_celulaproducao, 
+            id_maquina = id_maquina, 
+            id_operacao = id_operacao 
+            )
+        
+        update_last_process_stmt = """update LstProcOF
+                                set Seq_operacao = :Seq_operacao
+                                where Id_LstProcOF = :id_last_process """
+        update_last_process_params = dict(Seq_operacao = qtd_processos + 1, id_last_process = id_last_process)
+        
+        with self.engine.connect() as conn:
+            conn.execute(text(update_last_process_stmt), update_last_process_params)
+            result = conn.execute(text(stmt), params).scalar()
+            conn.commit()
+            return result
         
     def get_raw_material(self, id_of):
         stmt = """select A.id_lstPartesOF, A.id_of, A.id_MatPrima, b.cd_Referencia, rtrim(B.ds_Prod) as ds_Prod, A.qtdItem, C.cd_unidMed  

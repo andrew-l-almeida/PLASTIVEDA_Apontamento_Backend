@@ -92,5 +92,14 @@ def getOperations():
     
     return jsonify({'operations': operations})
     
+@app.route('/insertNewProcess', methods=['POST'])
+@limiter.exempt
+def insertNewProcess():
+    data = request.json
+    newProcess = databases.areco.insert_new_process(data)
+    # print(data)
+    
+    return jsonify({'newProcessId': newProcess})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0',debug=True)
