@@ -84,6 +84,13 @@ def getAuxiliarOrders(id_of):
     auxiliarOrders = databases.areco.get_auxiliar_orders(id_of)
     
     return jsonify({'auxiliarOrders': auxiliarOrders})
+
+@app.route('/getOperations', methods=['GET'])
+@limiter.exempt
+def getOperations():
+    operations = databases.areco.get_operations()
+    
+    return jsonify({'operations': operations})
     
     
 if __name__ == '__main__':

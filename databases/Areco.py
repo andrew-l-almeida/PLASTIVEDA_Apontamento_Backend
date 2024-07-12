@@ -95,6 +95,7 @@ order by A.cdPedido desc
 , isNull(Ordem.cd_of, 0) as OrdemFabricacao
 , isNull(Ordem.StatusOF, 'NFD') as StatusOF
 , isNull(Ordem.id_of, 0) as id_of
+, isNull(Programacao.id_CtrlProjPCP, 0) as id_CtrlProjPCP 
  FROM Pedidos AS Pedidos  WITH(NOLOCK) 
 INNER JOIN Entidade AS Empresa  WITH(NOLOCK) ON (Empresa.Id_Ent = Pedidos.id_Empresa)
 INNER JOIN Entidade AS Cliente  WITH(NOLOCK) ON (Cliente.Id_Ent = Pedidos.id_Cliente)
@@ -127,7 +128,8 @@ B.id_LstProcOF,
 A.cd_of, 
 B.Seq_operacao, 
 C.id_operacao, 
-rtrim(C.ds_operacao) as ds_operacao
+rtrim(C.ds_operacao) as ds_operacao,
+B.id_CtrlProjPCP
 from OrdemFabricacao					A
 inner join LstProcOF					B on a.id_of = B.id_of
 inner join OperacoesProdutivas			C on C.id_operacao = B.id_operacao
@@ -200,6 +202,7 @@ order by 1,4
                 'Seq_operacao': row['Seq_operacao'],
                 'id_operacao': row['id_operacao'],
                 'ds_operacao': row['ds_operacao'],
+                'id_CtrlProjPCP': row['id_CtrlProjPCP'],
                 'records': records_array
             }
             
@@ -265,6 +268,7 @@ WHERE (Entidade.PierSitReg = 'ATV')
     def get_machines(self):
         stmt = """SELECT Maquinas.id_maquina as id_maquina
 , rtrim(Maquinas.ds_maquina) AS ds_maquina
+, CelulaProducao.id_celulaproducao
 , rtrim(CelulaProducao.ds_celulaproducao) AS CCusto
 , rtrim(CelulaProducao.Observacao) AS Observacao
  FROM CelulaProducao AS CelulaProducao  WITH(NOLOCK) 
@@ -280,14 +284,18 @@ ORDER BY CelulaProducao.cd_celulaproducao
         
         result = pd.read_sql_query(stmt, self.engine)
         
-        setores = result['CCusto'].unique()
+        setores = result[['CCusto', 'id_celulaproducao']].drop_duplicates()
+        
+        print(setores)
         
         return_array = []
         
-        for setor in setores:
+        for index, row in setores.iterrows():
+            id = row['id_celulaproducao']
+            setor = row['CCusto']
             department = {}
             
-            department[setor] = []
+            department[f'{id}-{setor}'] = []
             
             for index, row in result.iterrows():
                 
@@ -303,7 +311,7 @@ ORDER BY CelulaProducao.cd_celulaproducao
                 }
                 
                 if setor == s:
-                    department[setor].append(newMachine)
+                    department[f'{id}-{setor}'].append(newMachine)
         
             return_array.append(department)
         return return_array
@@ -377,6 +385,19 @@ ORDER BY CelulaProducao.cd_celulaproducao
         params = (id_of, )
         
         result = pd.read_sql_query(stmt, self.engine, params=params)
+        
+        return result.to_dict(orient='records')
+    
+    def get_operations(self):
+        stmt = """select id_operacao, 
+        cd_operacao, 
+        RTRIM(ds_operacao) as ds_operacao, 
+        RTRIM(Observacao) as Observacao 
+        from OperacoesProdutivas
+        where PierSitReg = 'ATV'
+        """
+        
+        result = pd.read_sql_query(stmt, self.engine)
         
         return result.to_dict(orient='records')
         
